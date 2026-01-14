@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>App — Core Nexus Learning</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <div id="app-card" class="card">
+      <h1 id="welcome">Bienvenue</h1>
+      <p id="info">Vous êtes connecté.</p>
+      <div class="actions">
+        <button id="logout" class="btn outline">Se déconnecter</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/main.js"></script>
+  <script>
+    const current = getCurrentUser();
+    if (!current){
+      // not logged => back to home
+      window.location.href = 'index.html';
+    } else {
+      document.getElementById('welcome').textContent = `Bienvenue, ${current} !`;
+      document.getElementById('info').textContent = "Vous êtes connecté à l'application.";
+    }
+
+    document.getElementById('logout').addEventListener('click', () => {
+      clearCurrentUser();
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>
