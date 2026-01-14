@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Connexion — Core Nexus Learning</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <form id="login-form" class="card">
+      <h1>Connexion</h1>
+
+      <div class="field">
+        <label for="username">Pseudonyme</label>
+        <input id="username" name="username" required autocomplete="username" />
+        <div id="username-msg" class="field-msg"></div>
+      </div>
+
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" />
+        <div id="password-msg" class="field-msg"></div>
+      </div>
+
+      <div class="actions">
+        <button id="login-btn" type="submit" class="btn">Se connecter</button>
+        <a class="link" href="register.html">Créer un compte</a>
+      </div>
+
+      <p id="form-msg" class="message" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script src="js/main.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const usernameMsg = document.getElementById('username-msg');
+    const passwordMsg = document.getElementById('password-msg');
+    const formMsg = document.getElementById('form-msg');
+
+    usernameEl.addEventListener('input', () => {
+      const v = usernameEl.value.trim();
+      if (!v) {
+        usernameMsg.textContent = '';
+        return;
+      }
+      const u = findUserByUsername(v);
+      if (!u) setFieldMessage(usernameMsg, "Pseudonyme introuvable.", 'error');
+      else setFieldMessage(usernameMsg, "Pseudonyme trouvé.", 'success');
+    });
+
+    passwordEl.addEventListener('input', () => {
+      if (passwordEl.value.length > 0) setFieldMessage(passwordMsg, '', '');
+      else setFieldMessage(passwordMsg, '', '');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formMsg.textContent = '';
+      const username = usernameEl.value.trim();
+      const password = passwordEl.value;
+
+      const user = findUserByUsername(username);
+      if (!user){
+        formMsg.className = 'message error';
+        formMsg.textContent = 'Pseudonyme introuvable.';
+        return;
+      }
+
+      const hash = await hashPassword(password);
+      if (hash !== user.passwordHash){
+        formMsg.className = 'message error';
+        formMsg.textContent = 'Mot de passe incorrect.';
+        return;
+      }
+
+      setCurrentUser(username);
+      formMsg.className = 'message success';
+      formMsg.textContent = 'Connexion réussie — redirection...';
+      setTimeout(() => window.location.href = 'app.html', 600);
+    });
+
+    // expose shared helper to avoid duplication
+    function setFieldMessage(el, text, type){
+      el.textContent = text;
+      el.className = 'field-msg ' + (type === 'error' ? 'error' : (type === 'success' ? 'success' : ''));
+    }
+  </script>
+</body>
+</html>
