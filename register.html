@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inscription — Core Nexus Learning</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <form id="register-form" class="card">
+      <h1>Créer un compte</h1>
+
+      <div class="field">
+        <label for="username">Pseudonyme (unique)</label>
+        <input id="username" name="username" required autocomplete="username" />
+        <div id="username-msg" class="field-msg"></div>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="email" />
+        <div id="email-msg" class="field-msg"></div>
+      </div>
+
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" required minlength="6" autocomplete="new-password" />
+        <div id="password-msg" class="field-msg"></div>
+      </div>
+
+      <div class="field">
+        <label for="confirm-password">Confirmer le mot de passe</label>
+        <input id="confirm-password" name="confirm-password" type="password" required autocomplete="new-password" />
+        <div id="confirm-msg" class="field-msg"></div>
+      </div>
+
+      <div class="field checkbox">
+        <input id="terms" type="checkbox" />
+        <label for="terms" class="terms-label">J'accepte les <a href="terms.html" target="_blank">conditions d'utilisation</a></label>
+      </div>
+
+      <div class="actions">
+        <button id="submit-btn" type="submit" class="btn" disabled>Créer un compte</button>
+        <a class="link" href="login.html">J'ai déjà un compte</a>
+      </div>
+
+      <p id="form-msg" class="message" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script src="js/main.js"></script>
+  <script>
+    // Elements
+    const form = document.getElementById('register-form');
+    const usernameEl = document.getElementById('username');
+    const emailEl = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+    const confirmEl = document.getElementById('confirm-password');
+    const termsEl = document.getElementById('terms');
+    const submitBtn = document.getElementById('submit-btn');
+    const formMsg = document.getElementById('form-msg');
+
+    const usernameMsg = document.getElementById('username-msg');
+    const emailMsg = document.getElementById('email-msg');
+    const passwordMsg = document.getElementById('password-msg');
+    const confirmMsg = document.getElementById('confirm-msg');
+
+    // State
+    const state = {
+      usernameValid: false,
+      emailValid: false,
+      passwordValid: false,
+      confirmValid: false,
+      termsAccepted: false
+    };
+
+    // Helpers to update UI
+    function updateSubmitState(){
+      const ok = state.usernameValid && state.emailValid && state.passwordValid && state.confirmValid && state.termsAccepted;
+      submitBtn.disabled = !ok;
+      submitBtn.classList.toggle('disabled', !ok);
+    }
+
+    // Real-time validators
+    usernameEl.addEventListener('input', debounce(async () => {
+      const v = usernameEl.value.trim();
+      const res = validateUsername(v);
+      if (res.ok){
+        // uniqueness check
+        const exists = !!findUserByUsername(v);
+        if (exists){
+          state.usernameValid = false;
+          setFieldMessage(usernameMsg, 'Ce pseudonyme est déjà utilisé.', 'error');
+        } else {
+          state.usernameValid = true;
+          setFieldMessage(usernameMsg, 'Pseudonyme disponible.', 'success');
+        }
+      } else {
+        state.usernameValid = false;
+        setFieldMessage(usernameMsg, res.msg, 'error');
+      }
+      updateSubmitState();
+    }, 350));
+
+    usernameEl.addEventListener('blur', () => {
+      usernameEl.value = usernameEl.value.trim();
+    });
+
+    emailEl.addEventListener('input', () => {
+      const v = emailEl.value.trim();
+      const ok = validateEmail(v);
+      state.emailValid = ok;
+      setFieldMessage(emailMsg, ok ? 'Email valide.' : 'Email invalide.', ok ? 'success' : 'error');
+      updateSubmitState();
+    });
+
+    passwordEl.addEventListener('input', () => {
+      const v = passwordEl.value;
+      const res = validatePassword(v);
+      state.passwordValid = res.ok;
+      setFieldMessage(passwordMsg, res.msg, res.ok ? 'success' : 'error');
+      // re-validate confirm
+      confirmEl.dispatchEvent(new Event('input'));
+      updateSubmitState();
+    });
+
+    confirmEl.addEventListener('input', () => {
+      const ok = (confirmEl.value === passwordEl.value) && confirmEl.value.length > 0;
+      state.confirmValid = ok;
+      setFieldMessage(confirmMsg, ok ? 'Les mots de passe correspondent.' : 'Les mots de passe ne correspondent pas.', ok ? 'success' : 'error');
+      updateSubmitState();
+    });
+
+    termsEl.addEventListener('change', () => {
+      state.termsAccepted = termsEl.checked;
+      updateSubmitState();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formMsg.textContent = '';
+      submitBtn.disabled = true;
+
+      const username = usernameEl.value.trim();
+      const email = emailEl.value.trim();
+      const password = passwordEl.value;
+
+      // final checks
+      if (!state.usernameValid || !state.emailValid || !state.passwordValid || !state.confirmValid || !state.termsAccepted){
+        formMsg.textContent = 'Veuillez corriger les erreurs avant de continuer.';
+        formMsg.classList.add('error');
+        updateSubmitState();
+        return;
+      }
+
+      // hash and store
+      const passwordHash = await hashPassword(password);
+      const users = getUsers();
+      users.push({ username, email, passwordHash });
+      saveUsers(users);
+      setCurrentUser(username);
+
+      // success
+      formMsg.classList.remove('error');
+      formMsg.classList.add('success');
+      formMsg.textContent = 'Inscription réussie — redirection...';
+      setTimeout(() => window.location.href = 'app.html', 700);
+    });
+
+    // Utility functions (simple client validation rules)
+    function validateUsername(v){
+      if (!v) return { ok:false, msg: 'Le pseudonyme est requis.' };
+      if (v.length < 3) return { ok:false, msg: 'Au moins 3 caractères.' };
+      if (/\s/.test(v)) return { ok:false, msg: 'Pas d\'espaces dans le pseudonyme.' };
+      if (!/^[a-zA-Z0-9_-]+$/.test(v)) return { ok:false, msg: 'Caractères autorisés: lettres, chiffres, - et _.' };
+      return { ok:true };
+    }
+
+    function validateEmail(v){
+      if (!v) return false;
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return re.test(v);
+    }
+
+    function validatePassword(v){
+      if (!v || v.length < 6) return { ok:false, msg: 'Le mot de passe doit contenir au moins 6 caractères.' };
+      // optional: complexity checks
+      const hasNumber = /[0-9]/.test(v);
+      const hasLetter = /[a-zA-Z]/.test(v);
+      if (!hasNumber || !hasLetter) return { ok:false, msg: 'Utilisez lettres et chiffres pour un mot de passe plus sûr.' };
+      return { ok:true, msg: 'Mot de passe OK.' };
+    }
+
+    // small UI helpers
+    function setFieldMessage(el, text, type){
+      el.textContent = text;
+      el.className = 'field-msg ' + (type === 'error' ? 'error' : (type === 'success' ? 'success' : ''));
+    }
+
+    function debounce(fn, wait=300){
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+      };
+    }
+
+  </script>
+</body>
+</html>
