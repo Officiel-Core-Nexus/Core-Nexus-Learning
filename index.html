@@ -1,43 +1,30 @@
-/* Welcome page */
-.welcome-container {
-  text-align: center;
-  margin-top: 15vh;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 2rem;
-  width: 350px;
-  margin-left: auto;
-  margin-right: auto;
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bienvenue — Core Nexus Learning</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="container">
+    <div class="card center">
+      <h1>Bienvenue</h1>
+      <p class="lead">Avez-vous un compte ?</p>
+      <div class="buttons">
+        <button id="btn-yes" class="btn">Oui</button>
+        <button id="btn-no" class="btn outline">Non</button>
+      </div>
+    </div>
+  </main>
 
-.welcome-container h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  color: white;
-}
-
-.welcome-container p {
-  font-size: 1.1rem;
-  margin-bottom: 2rem;
-  color: white;
-}
-
-.welcome-buttons button {
-  width: 100%;
-  padding: 0.9rem;
-  margin-bottom: 1rem;
-  border: none;
-  border-radius: 12px;
-  background: var(--cta-bg);
-  color: white;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.welcome-buttons button:hover {
-  transform: translateY(-3px);
-}
+  <script>
+    document.getElementById('btn-yes').addEventListener('click', () => {
+      window.location.href = 'login.html';
+    });
+    document.getElementById('btn-no').addEventListener('click', () => {
+      window.location.href = 'register.html';
+    });
+  </script>
+</body>
+</html>
