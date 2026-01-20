@@ -1,30 +1,357 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bienvenue — Core Nexus Learning</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8" />
+  <title>Backrooms Prototype 3D</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      font-family: system-ui, sans-serif;
+      background: #000;
+      color: #f5f5f5;
+    }
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      background: radial-gradient(circle at top, #111, #000);
+      z-index: 10;
+    }
+    #overlay h1 {
+      margin: 0;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-size: 1.6rem;
+    }
+    #overlay p {
+      margin: 0;
+      opacity: 0.8;
+      font-size: 0.95rem;
+      text-align: center;
+      max-width: 420px;
+    }
+    #start-btn {
+      padding: 0.7rem 1.6rem;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffd200, #ff7a00);
+      color: #000;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+    }
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 1rem 1.4rem;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.8);
+    }
+    #hint {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.6);
+    }
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #crosshair::before,
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255,255,255,0.7);
+    }
+    #crosshair::before {
+      width: 2px;
+      height: 14px;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+    }
+    #crosshair::after {
+      width: 14px;
+      height: 2px;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+    }
+  </style>
 </head>
 <body>
-  <main class="container">
-    <div class="card center">
-      <h1>Bienvenue</h1>
-      <p class="lead">Avez-vous un compte ?</p>
-      <div class="buttons">
-        <button id="btn-yes" class="btn">Oui</button>
-        <button id="btn-no" class="btn outline">Non</button>
-      </div>
-    </div>
-  </main>
+  <div id="overlay">
+    <h1>BACKROOMS PROTOTYPE</h1>
+    <p>
+      Tu es coincé dans un labyrinthe de bureaux jaunes sans fin.  
+      Clique sur “Entrer” puis bouge avec ZQSD, souris pour regarder.
+    </p>
+    <button id="start-btn">Entrer</button>
+  </div>
+
+  <div id="hud">
+    <div>Prototype solo – Backrooms 3D</div>
+    <div id="info">FPS: --</div>
+  </div>
+  <div id="hint">ZQSD pour bouger • Souris pour regarder • Échap pour quitter le mode souris</div>
+  <div id="crosshair"></div>
+
+  <!-- Three.js depuis un CDN -->
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.158.0/examples/js/controls/PointerLockControls.js"></script>
 
   <script>
-    document.getElementById('btn-yes').addEventListener('click', () => {
-      window.location.href = 'login.html';
-    });
-    document.getElementById('btn-no').addEventListener('click', () => {
-      window.location.href = 'register.html';
-    });
+    // --- Variables de base ---
+    let scene, camera, renderer, controls;
+    let clock = new THREE.Clock();
+    let moveForward = false,
+        moveBackward = false,
+        moveLeft = false,
+        moveRight = false;
+    let velocity = new THREE.Vector3();
+    let direction = new THREE.Vector3();
+    const infoEl = document.getElementById("info");
+    const overlay = document.getElementById("overlay");
+    const startBtn = document.getElementById("start-btn");
+
+    init();
+    animate();
+
+    function init() {
+      // Scène
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+      scene.fog = new THREE.FogExp2(0xf5e58a, 0.0022); // brume jaune
+
+      // Caméra
+      camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lumières
+      const ambient = new THREE.AmbientLight(0xfff3c1, 0.4);
+      scene.add(ambient);
+
+      const dirLight = new THREE.DirectionalLight(0xfff7d0, 0.6);
+      dirLight.position.set(10, 20, 0);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // Sol
+      const floorTex = new THREE.TextureLoader().load(
+        "https://i.imgur.com/3YQFZ1P.jpeg"
+      );
+      floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+      floorTex.repeat.set(40, 40);
+
+      const floorMat = new THREE.MeshStandardMaterial({
+        map: floorTex,
+        roughness: 0.9,
+        metalness: 0.0
+      });
+
+      const floorGeo = new THREE.PlaneGeometry(400, 400);
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Murs (Backrooms style)
+      const wallTex = new THREE.TextureLoader().load(
+        "https://i.imgur.com/0fYxG5H.jpeg"
+      );
+      wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+      wallTex.repeat.set(4, 1);
+
+      const wallMat = new THREE.MeshStandardMaterial({
+        map: wallTex,
+        roughness: 1.0,
+        metalness: 0.0
+      });
+
+      const wallHeight = 3;
+      const wallThickness = 0.4;
+
+      function addWall(x, z, length, rotationY = 0) {
+        const geo = new THREE.BoxGeometry(length, wallHeight, wallThickness);
+        const mesh = new THREE.Mesh(geo, wallMat);
+        mesh.position.set(x, wallHeight / 2, z);
+        mesh.rotation.y = rotationY;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      }
+
+      // Quelques couloirs / pièces
+      addWall(0, -20, 40);
+      addWall(0, 20, 40);
+      addWall(-20, 0, 40, Math.PI / 2);
+      addWall(20, 0, 40, Math.PI / 2);
+
+      addWall(-40, -20, 40);
+      addWall(-40, 20, 40);
+      addWall(-60, 0, 40, Math.PI / 2);
+
+      addWall(40, -20, 40);
+      addWall(40, 20, 40);
+      addWall(60, 0, 40, Math.PI / 2);
+
+      // Quelques piliers
+      const pillarGeo = new THREE.BoxGeometry(1.2, wallHeight, 1.2);
+      const pillarMat = new THREE.MeshStandardMaterial({
+        color: 0xe8d88a,
+        roughness: 0.9
+      });
+      for (let x = -30; x <= 30; x += 15) {
+        for (let z = -30; z <= 30; z += 15) {
+          const p = new THREE.Mesh(pillarGeo, pillarMat);
+          p.position.set(x, wallHeight / 2, z);
+          p.castShadow = true;
+          p.receiveShadow = true;
+          scene.add(p);
+        }
+      }
+
+      // Faux néons au plafond
+      const neonGeo = new THREE.BoxGeometry(6, 0.1, 0.3);
+      const neonMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+      for (let x = -30; x <= 30; x += 15) {
+        for (let z = -30; z <= 30; z += 15) {
+          const n = new THREE.Mesh(neonGeo, neonMat);
+          n.position.set(x, wallHeight - 0.1, z);
+          scene.add(n);
+        }
+      }
+
+      // Contrôles FPS (Pointer Lock)
+      controls = new THREE.PointerLockControls(camera, document.body);
+      camera.position.set(0, 1.7, 0); // hauteur yeux
+
+      startBtn.addEventListener("click", () => {
+        controls.lock();
+      });
+
+      controls.addEventListener("lock", () => {
+        overlay.style.display = "none";
+      });
+
+      controls.addEventListener("unlock", () => {
+        overlay.style.display = "flex";
+      });
+
+      // Clavier
+      const onKeyDown = (event) => {
+        switch (event.code) {
+          case "KeyZ":
+          case "ArrowUp":
+            moveForward = true;
+            break;
+          case "KeyS":
+          case "ArrowDown":
+            moveBackward = true;
+            break;
+          case "KeyQ":
+          case "ArrowLeft":
+            moveLeft = true;
+            break;
+          case "KeyD":
+          case "ArrowRight":
+            moveRight = true;
+            break;
+        }
+      };
+
+      const onKeyUp = (event) => {
+        switch (event.code) {
+          case "KeyZ":
+          case "ArrowUp":
+            moveForward = false;
+            break;
+          case "KeyS":
+          case "ArrowDown":
+            moveBackward = false;
+            break;
+          case "KeyQ":
+          case "ArrowLeft":
+            moveLeft = false;
+            break;
+          case "KeyD":
+          case "ArrowRight":
+            moveRight = false;
+            break;
+        }
+      };
+
+      document.addEventListener("keydown", onKeyDown);
+      document.addEventListener("keyup", onKeyUp);
+
+      window.addEventListener("resize", onWindowResize);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const speed = 8.0;
+
+      if (controls.isLocked === true) {
+        // Gestion du mouvement
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+
+        direction.z = Number(moveForward) - Number(moveBackward);
+        direction.x = Number(moveRight) - Number(moveLeft);
+        direction.normalize();
+
+        if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
+      }
+
+      renderer.render(scene, camera);
+
+      // FPS approximatif
+      const fps = (1 / delta).toFixed(0);
+      infoEl.textContent = "FPS: " + fps;
+    }
   </script>
 </body>
 </html>
